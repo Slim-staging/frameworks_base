@@ -1973,6 +1973,7 @@ public final class PowerManagerService extends SystemService
                         if (mButtonBrightnessOverrideFromWindowManager >= 0) {
                             buttonBrightness = mButtonBrightnessOverrideFromWindowManager;
                             keyboardBrightness = mButtonBrightnessOverrideFromWindowManager;
+
                         } else {
                             buttonBrightness = mButtonBrightness;
                             keyboardBrightness = mKeyboardBrightness;
@@ -4320,6 +4321,27 @@ public final class PowerManagerService extends SystemService
         }
 
         @Override // Binder call
+        public void wakeUpWithProximityCheck(long eventTime, String reason, String opPackageName) {
+            wakeUp(eventTime, reason, opPackageName, true);
+        }
+
+        @Override // Binder call
+        public void setKeyboardVisibility(boolean visible) {
+            synchronized (mLock) {
+                if (DEBUG_SPEW) {
+                    Slog.d(TAG, "setKeyboardVisibility: " + visible);
+                }
+                if (mKeyboardVisible != visible) {
+                    mKeyboardVisible = visible;
+                    synchronized (mLock) {
+                        mDirty |= DIRTY_USER_ACTIVITY;
+                        updatePowerStateLocked();
+                    }
+                }
+            }
+        }
+
+        @Override // Binder call
         public void goToSleep(long eventTime, int reason, int flags) {
             if (eventTime > SystemClock.uptimeMillis()) {
                 throw new IllegalArgumentException("event time must not be in the future");
@@ -4699,6 +4721,9 @@ public final class PowerManagerService extends SystemService
                 return PowerManager.SHUTDOWN_REASON_THERMAL_SHUTDOWN;
             default:
                 return PowerManager.SHUTDOWN_REASON_UNKNOWN;
+        }
+    }
+
     private void setButtonBrightnessOverrideFromWindowManagerInternal(int brightness) {
         synchronized (mLock) {
             if (mButtonBrightnessOverrideFromWindowManager != brightness) {
@@ -4720,16 +4745,8 @@ public final class PowerManagerService extends SystemService
         }
 
         @Override
-        public void setButtonBrightnessOverrideFromWindowManager(int screenBrightness) {
-            mContext.enforceCallingOrSelfPermission(android.Manifest.permission.DEVICE_POWER, null);
-
-            final long ident = Binder.clearCallingIdentity();
-            try {
-                setButtonBrightnessOverrideFromWindowManagerInternal(screenBrightness);
-            } finally {
-                Binder.restoreCallingIdentity(ident);
-            }
-
+        public void setButtonBrightnessOverrideFromWindowManager(int buttonBrightness) {
+            setButtonBrightnessOverrideFromWindowManagerInternal(buttonBrightness);
         }
 
         @Override
